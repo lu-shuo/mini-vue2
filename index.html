@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue2</title>
+  <!-- <script src="./vue.js" defer></script> -->
+</head>
+<body>
+  <script>
+    const arrayProto = Array.prototype
+    // 创建一个对象作为拦截器
+    const arrayMethods = Object.create(arrayProto)
+
+    const methodsToPatch = [
+      'push',
+      'pop',
+      'shift',
+      'unshift',
+      'splice',
+      'sort',
+      'reverse'
+    ]
+
+    methodsToPatch.forEach(function(method) {
+      const original = arrayMethods[method]
+      Object.defineProperty(arrayMethods, method, {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value:function mutator(...args){
+          const result = original.apply(this, args)
+          return result
+        }
+      })
+    })
+
+    const arrayKeys = Object.getOwnPropertyNames(arrayMethods)
+    console.log(arrayMethods, arrayKeys)
+  </script>
+</body>
+</html>
