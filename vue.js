@@ -1,3 +1,8 @@
+// &1. Utils
+
+// 能力检测：判断__proto__是否可用，因为有的浏览器不支持该属性
+const hasProto = '__proto__' in {}
+
 function isObject(object) {
   return object !== null && typeof object === 'object'
 }
@@ -58,6 +63,7 @@ function parsePath(path) {
   }
 }
 
+// &2. 变化侦测
 // *Array响应式
 const arrayProto = Array.prototype
 // 创建一个对象作为拦截器
@@ -81,6 +87,22 @@ methodsToPatch.forEach(function (method) {
     writable: true,
     value: function mutator(...args) {
       const result = original.apply(this, args)
+      // *获取ob实例
+      const ob = this.__ob__
+      // *数组新增数据监测
+      let inserted
+      switch (method) {
+        case 'push':
+        case 'unshift':
+          inserted = args
+          break
+        case 'splice':
+          inserted = args.slice(2) // 如果是splice方法，那么传入参数列表中下标为2的就是新增的元素
+          break
+      }
+      if (inserted) ob.observeArray(inserted)
+      // *触发更新
+      ob.dep.notify()
       return result
     }
   })
@@ -88,8 +110,7 @@ methodsToPatch.forEach(function (method) {
 
 
 // *将拦截器挂载到实例与Array.prototype之间让之生效
-// 能力检测：判断__proto__是否可用，因为有的浏览器不支持该属性
-const hasProto = '__proto__' in {}
+
 
 /**
  * @description: 通过__proto__拦截增强对象的原型
@@ -122,7 +143,7 @@ class Observer {
   constructor(value) {
     this.value = value
 
-    this.dep = new Dep()    // *实例化一个依赖管理器，用来收集数组依赖
+    this.dep = new Dep()    // *实例化一个依赖管理器，收集数组依赖
 
     def(value, '__ob__', this) // __ob__不可枚举，__ob__.value循环引用自身
 
@@ -131,10 +152,18 @@ class Observer {
         ? protoAugment
         : copyAugment
       augment(value, arrayMethods, arrayKeys)
+      // *数组的深度监测（数组中包含对象）
+      this.observeArray(value)
     } else {
       this.walk(value)
     }
 
+  }
+
+  observeArray(arr) {
+    for (let i = 0, l = arr.length; i < l; i++) {
+      observe(arr[i])
+    }
   }
 
   walk(obj) {
@@ -145,12 +174,17 @@ class Observer {
   }
 }
 
+
 function defineReactive(obj, key, val) {
-  const dep = new Dep()
+  const dep = new Dep() // *实例化一个依赖管理器，收集对象依赖
 
   if (arguments.length === 2) {
     val = obj[key]
   }
+
+  // 对象或者数组都会返回childOb
+  const childOb = observe(val)
+
   // 递归调用
   if (typeof val === 'object') {
     new Observer(val)
@@ -162,6 +196,9 @@ function defineReactive(obj, key, val) {
     get() {
       console.log(`属性${key}被读取了`)
       dep.depend() // 收集依赖
+      if (childOb) {
+        childOb.dep.depend()
+      }
       return val
     },
     set(newVal) {
@@ -171,6 +208,23 @@ function defineReactive(obj, key, val) {
       dep.notify() // 通知依赖更新
     }
   })
+}
+/**
+ * @description: 尝试为一个对象创建一个Observer实例并返回，如果value已经有__ob__属性，则直接返回
+ * @param {Object} value
+ * @return {*}
+ */
+function observe(value) {
+  if (!isObject(value) || value instanceof VNode) {
+    return
+  }
+  let ob
+  if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
+    ob = value.__ob__
+  } else {
+    ob = new Observer(value)
+  }
+  return ob
 }
 
 // *2.Dep类：依赖收集器
