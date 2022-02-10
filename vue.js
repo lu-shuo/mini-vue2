@@ -108,10 +108,7 @@ methodsToPatch.forEach(function (method) {
   })
 })
 
-
 // *将拦截器挂载到实例与Array.prototype之间让之生效
-
-
 /**
  * @description: 通过__proto__拦截增强对象的原型
  * @param {Object} target
@@ -253,7 +250,7 @@ class Dep {
 
   // 通知所有依赖更新
   notify() {
-    const subs = this.subs.slice() // !为啥复制一份?
+    const subs = this.subs.slice()
     for (let i = 0, l = subs.length; i < l; i++) {
       subs[i].update()
     }
@@ -286,4 +283,89 @@ class Watcher {
     this.value = this.get()
     this.cb.call(vm, this.value, oldValue)
   }
+}
+
+// &3. VDOM
+// 源码位置：src/core/vdom/vnode.js
+class VNode {
+  constructor(
+    tag, // String
+    data, // VnodeData
+    children, // Array<Vnode>
+    text, // String
+    elm, // Node
+    context, // Component
+    componentOptions, // VNodeComponentOptions
+    asyncFactory // Function
+  ) {
+    this.tag = tag /*当前节点的标签名*/
+    this.data = data /*当前节点对应的对象，包含了具体的一些数据信息，是一个VNodeData类型，可以参考VNodeData类型中的数据信息*/
+    this.children = children /*当前节点的子节点，是一个数组*/
+    this.text = text /*当前节点的文本*/
+    this.elm = elm /*当前虚拟节点对应的真实dom节点*/
+    this.ns = undefined /*当前节点的名字空间*/
+    this.context = context /*当前组件节点对应的Vue实例*/
+    this.fnContext = undefined /*函数式组件对应的Vue实例*/
+    this.fnOptions = undefined
+    this.fnScopeId = undefined
+    this.key = data && data.key /*节点的key属性，被当作节点的标志，用以优化*/
+    this.componentOptions = componentOptions /*组件的option选项*/
+    this.componentInstance = undefined /*当前节点对应的组件的实例*/
+    this.parent = undefined /*当前节点的父节点*/
+    this.raw = false /*简而言之就是是否为原生HTML或只是普通文本，innerHTML的时候为true，textContent的时候为false*/
+    this.isStatic = false /*静态节点标志*/
+    this.isRootInsert = true /*是否作为跟节点插入*/
+    this.isComment = false /*是否为注释节点*/
+    this.isCloned = false /*是否为克隆节点*/
+    this.isOnce = false /*是否有v-once指令*/
+    this.asyncFactory = asyncFactory
+    this.asyncMeta = undefined
+    this.isAsyncPlaceholder = false
+  }
+}
+
+// *Vue中Vnode类可描述的真实节点类型：
+// 注释节点
+// 文本节点
+// 元素节点
+// 组件节点
+// 函数式组件节点
+// 克隆节点
+
+// *创建注释节点
+function createEmptyVNode(text) {
+  const node = new VNode()
+  node.text = text
+  node.isComment = true
+  return node
+}
+
+// *创建文本节点
+function createTextVNode(val) {
+  return new VNode(undefined, undefined, undefined, String(val))
+}
+
+// *创建克隆节点(按照已有节点的属性复制一份新的节点，唯一的区别是新节点isCloned为true)
+// 模板编译优化时使用
+function cloneVNode(vnode) {
+  const cloned = new VNode(
+    vnode.tag,
+    vnode.data,
+    vnode.children,
+    vnode.text,
+    vnode.elm,
+    vnode.context,
+    vnode.componentOptions,
+    vnode.asyncFactory
+  )
+  cloned.ns = vnode.ns
+  cloned.isStatic = vnode.isStatic
+  cloned.key = vnode.key
+  cloned.isComment = vnode.isComment
+  cloned.fnContext = vnode.fnContext
+  cloned.fnOptions = vnode.fnOptions
+  cloned.fnScopeId = vnode.fnScopeId
+  cloned.asyncMeta = vnode.asyncMeta
+  cloned.isCloned = true
+  return cloned
 }
